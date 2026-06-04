@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swift Studio - Face Censor Elite V2.2</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+    <style>
+        :root {
+            --accent: #d64c78;
+            --secondary: #25529a;
+            --success: #10b981;
+            --bg: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --text-dark: #1e293b;
+            --text-light: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        
+        body { 
+            margin: 0; background: var(--bg); color: var(--text-dark);
+            display: flex; height: 100vh; overflow: hidden; 
+        }
+
+        /* מערכת התחברות */
+        #loginOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(248, 250, 252, 0.95); backdrop-filter: blur(15px);
+            display: flex; justify-content: center; align-items: center; z-index: 99999;
+            transition: opacity 0.4s ease;
+        }
+
+        .login-box {
+            background: white; border: 1px solid var(--border);
+            border-radius: 20px; padding: 40px; width: 380px; text-align: center;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.1); border-top: 4px solid var(--accent);
+        }
+
+        .login-box h2 {
+            margin-top: 0; background: linear-gradient(135deg, var(--accent), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 28px; font-weight: 900;
+        }
+
+        .login-box input {
+            width: 100%; padding: 12px 14px; background: #f8fafc; border: 1px solid var(--border);
+            border-radius: 12px; color: var(--text-dark); font-size: 14px; outline: none; transition: border 0.2s;
+        }
+        .login-box input:focus { border-color: var(--accent); }
+
+        /* Sidebar */
+        .sidebar {
+            width: 420px; background: var(--sidebar-bg); border-left: 1px solid var(--border);
+            display: flex; flex-direction: column; padding: 30px; box-shadow: -10px 0 30px rgba(0,0,0,0.03);
+            z-index: 100; overflow-y: auto;
+        }
+
+        .brand h1 {
+            font-size: 28px; margin: 0; font-weight: 900; text-align: center;
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .brand p { text-align: center; font-size: 10px; letter-spacing: 5px; color: var(--text-light); margin-bottom: 25px; }
+
+        .section-title { font-size: 14px; font-weight: 800; color: var(--secondary); margin-bottom: 15px; display: block; border-bottom: 2px solid #f1f5f9; padding-bottom: 5px; }
+
+        .control-group { background: #f8fafc; border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 15px; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 13px; }
+        .label-row span:last-child { color: var(--accent); background: #f1f5f9; padding: 2px 8px; border-radius: 8px; font-weight: 900; }
+
+        input[type="range"] { width: 100%; margin-bottom: 15px; cursor: pointer; accent-color: var(--accent); }
+
+        /* Tool Toggle (Draw/Erase) */
+        .toggle-container { display: flex; gap: 10px; margin-bottom: 15px; }
+        .toggle-container input[type="radio"] { display: none; }
+        .toggle-container label {
+            flex: 1; text-align: center; padding: 10px; background: white; border: 2px solid var(--border);
+            border-radius: 12px; cursor: pointer; font-weight: 800; font-size: 13px; color: var(--text-light); transition: 0.2s;
+        }
+        .toggle-container input[type="radio"]#modeDraw:checked + label {
+            border-color: var(--accent); color: var(--accent); background: #fffafb;
+        }
+        .toggle-container input[type="radio"]#modeErase:checked + label {
+            border-color: var(--secondary); color: var(--secondary); background: #f4f8ff;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%; padding: 15px; border-radius: 12px; border: none; font-weight: 800;
+            cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 10px;
+            margin-bottom: 10px; font-size: 15px;
+        }
+        .btn-primary { background: var(--accent); color: white; box-shadow: 0 4px 15px rgba(214, 76, 120, 0.2); }
+        .btn-primary:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+        
+        .btn-outline { background: white; color: var(--secondary); border: 2px solid var(--secondary); padding: 10px; }
+        .btn-outline:hover { background: var(--secondary); color: white; }
+        
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+        /* Workspace */
+        .workspace { flex: 1; display: flex; flex-direction: column; padding: 40px; align-items: center; justify-content: center; position: relative; }
+        
+        .upload-zone {
+            width: 100%; max-width: 600px; height: 350px; border: 3px dashed #cbd5e1; border-radius: 30px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: white; cursor: pointer; transition: all 0.3s;
+        }
+        .upload-zone:hover, .upload-zone.dragover { border-color: var(--accent); background: #fffafb; transform: scale(1.02); }
+        .upload-icon { font-size: 60px; margin-bottom: 15px; transition: 0.3s; }
+        .upload-zone:hover .upload-icon, .upload-zone.dragover .upload-icon { transform: translateY(-10px); }
+
+        .canvas-container { display: none; width: 100%; height: 100%; align-items: center; justify-content: center; position: relative; }
+        
+        canvas { 
+            max-width: 100%; max-height: 100%; width: auto; height: auto;
+            border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); 
+            cursor: none; 
+            touch-action: none;
+        }
+
+        #brushCursor {
+            position: fixed; border: 2px solid var(--accent); background: rgba(214, 76, 120, 0.1);
+            border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%);
+            display: none; z-index: 1000; transition: width 0.05s, height 0.05s, border-color 0.2s, background 0.2s;
+        }
+
+        .btn-new { position: absolute; top: 20px; right: 20px; background: white; color: var(--secondary); border: 2px solid var(--secondary); padding: 8px 16px; border-radius: 10px; font-weight: 800; cursor: pointer; transition: 0.2s; z-index: 10; display: none; }
+        .btn-new:hover { background: var(--secondary); color: white; }
+
+        /* Loader */
+        #loading {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.9); z-index: 1000; display: flex;
+            align-items: center; justify-content: center; flex-direction: column; font-weight: 900;
+        }
+        .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Footer */
+        .footer { margin-top: auto; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; }
+        .copy-info { font-size: 13px; font-weight: 700; color: var(--text-light); margin-bottom: 15px; display: block; }
+        .portfolio-link {
+            display: inline-block; padding: 10px 20px; background: #f1f5f9; border-radius: 30px;
+            color: var(--secondary); text-decoration: none; font-weight: 800; font-size: 13px; transition: 0.2s; border: 1px solid var(--border);
+        }
+        .portfolio-link:hover { background: var(--secondary); color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="loginOverlay">
+        <div class="login-box">
+            <h2>SWIFT STUDIO</h2>
+            <p style="color: var(--text-light); font-size: 14px; margin-bottom: 15px;">המערכת נעולה. הזינו פרטי התחברות:</p>
+            <input type="text" id="loginUser" placeholder="שם משתמש..." style="margin-bottom: 15px; text-align: center;">
+            <input type="password" id="loginPass" placeholder="הקלידו סיסמה כאן..." style="margin-bottom: 20px; text-align: center; letter-spacing: 2px;" onkeydown="if(event.key === 'Enter') doLogin()">
+            <button class="btn btn-primary" onclick="doLogin()">כניסה למערכת ✨</button>
+            
+            <div style="margin-top: 25px; font-size: 13px; color: var(--text-light);">
+                רוצה לקבל גישה לכלי?<br>
+                <a href="mailto:SWIFT84529@GMAIL.COM" style="color: var(--secondary); text-decoration: none; font-weight: bold; display: block; margin-top: 5px;">דברי איתי במייל: SWIFT84529@GMAIL.COM</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="brushCursor"></div>
+
+    <div id="loading" style="display: none;">
+        <div class="spinner"></div>
+        <div id="loaderText" style="color: var(--secondary); font-size: 18px;">טוען מנוע בינה מלאכותית...</div>
+    </div>
+
+    <aside class="sidebar">
+        <div class="brand">
+            <h1>SWIFT STUDIO</h1>
+            <p>AI CENSOR ELITE V2.2</p>
+        </div>
+
+        <div class="control-group">
+            <span class="section-title">⚙️ הגדרות טשטוש AI</span>
+            
+            <div class="label-row"><span>עוצמת טשטוש (Blur)</span> <span id="blurVal">20px</span></div>
+            <input type="range" id="blurRange" min="0" max="80" value="20">
+
+            <div class="label-row"><span>גודל כיסוי פנים</span> <span id="padVal">20%</span></div>
+            <input type="range" id="padRange" min="0" max="100" value="20">
+
+            <div class="label-row"><span>ריכוך קצוות (Feather)</span> <span id="featherVal">25px</span></div>
+            <input type="range" id="featherRange" min="0" max="100" value="25">
+
+            <button class="btn btn-outline" id="btnClearAuto" style="margin-top: 15px; border-color: #cbd5e1; color: var(--text-light);">מחק טשטוש אוטומטי (AI)</button>
+        </div>
+
+        <div class="control-group">
+            <span class="section-title">🖌️ טשטוש ומחיקה ידנית</span>
+            <div style="font-size: 12px; color: var(--text-light); margin-bottom: 15px; font-weight: bold;">
+                בחרי כלי וציירי על התמונה. הסמן מראה בדיוק את גודל הפעולה.
+            </div>
+            
+            <div class="toggle-container">
+                <input type="radio" id="modeDraw" name="brushMode" value="draw" checked>
+                <label for="modeDraw">🖌️ הוסף טשטוש</label>
+                
+                <input type="radio" id="modeErase" name="brushMode" value="erase">
+                <label for="modeErase">🧽 מחק טשטוש</label>
+            </div>
+
+            <div class="label-row"><span>גודל מברשת</span> <span id="brushVal">60px</span></div>
+            <input type="range" id="brushRange" min="10" max="300" value="60">
+
+            <button class="btn btn-outline" id="btnClearManual" style="margin-top: 5px; border-color: #cbd5e1; color: var(--text-light);">מחק הכל (עריכות ידניות)</button>
+        </div>
+
+        <button class="btn btn-primary" id="btnDownload" disabled>💾 הורדת התמונה המצונזרת</button>
+
+        <hr style="width: 100%; border: 0; border-top: 1px solid var(--border); margin: 20px 0;">
+        <button class="btn btn-outline" onclick="logout()" style="border-color: #cbd5e1; color: var(--text-light); margin-bottom: 10px;">🚪 יציאה מהמערכת</button>
+        <button class="btn btn-outline" onclick="resetSystem()" style="border-color: #fca5a5; color: #ef4444; background: #fef2f2;">⚠️ איפוס מערכת</button>
+
+        <footer class="footer">
+            <span class="copy-info">כל הזכויות שמורות © swift84529@gmail.com</span>
+            <a href="https://www.youtube.com/watch?v=zpo1tHXi6ZM&feature=youtu.be" target="_blank" class="portfolio-link">צפי בתיק העבודות שלי ←</a>
+        </footer>
+    </aside>
+
+    <main class="workspace">
+        <button class="btn-new" id="btnNew">העלאת תמונה חדשה</button>
+        
+        <div class="upload-zone" id="dropZone">
+            <span class="upload-icon">📸</span>
+            <span style="font-size: 24px; font-weight: 800; margin-bottom: 5px;">לחצי או גררי לכאן תמונה</span>
+            <span style="color: var(--text-light);">פורמטים נתמכים: JPG, PNG</span>
+            <input type="file" id="fileInp" accept="image/*" hidden>
+        </div>
+
+        <div class="canvas-container" id="canvasArea">
+            <canvas id="mainCanvas"></canvas>
+        </div>
+    </main>
+
+    <script>
+        // ==========================================
+        // מערכת התחברות
+        // ==========================================
+        function checkLoginStatus() {
+            const lastLogin = localStorage.getItem('swift_censor_login_v1');
+            const now = Date.now();
+            const monthInMs = 30 * 24 * 60 * 60 * 1000;
+            
+            if (!lastLogin || (now - parseInt(lastLogin)) > monthInMs) {
+                document.getElementById('loginOverlay').style.display = 'flex';
+            } else {
+                document.getElementById('loginOverlay').style.display = 'none';
+                loadModels(); // טוען מודלים רק אם מחובר
+            }
+        }
+
+        function doLogin() {
+            const pass = document.getElementById('loginPass').value;
+            const user = document.getElementById('loginUser').value;
+            if (pass !== 'טשטושפנים') { 
+                alert('סיסמה שגויה, נסו שוב.'); 
+                return; 
+            }
+            localStorage.setItem('swift_censor_login_v1', Date.now());
+            if(user) localStorage.setItem('swift_censor_user', user);
+            
+            document.getElementById('loginOverlay').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('loginOverlay').style.display = 'none';
+                loadModels(); // טוען מודלים לאחר התחברות
+            }, 400);
+        }
+
+        function logout() {
+            if(confirm("האם אתה בטוח שברצונך לצאת מהמערכת? הפרויקטים והנתונים שלך לא יימחקו.")) {
+                localStorage.removeItem('swift_censor_login_v1');
+                document.getElementById('loginPass').value = '';
+                document.getElementById('loginOverlay').style.display = 'flex';
+                setTimeout(() => {
+                    document.getElementById('loginOverlay').style.opacity = '1';
+                }, 10);
+            }
+        }
+
+        function resetSystem() {
+            if(confirm("⚠️ האם אתה בטוח שברצונך לאפס את המערכת? פעולה זו תמחק את כל העריכות הנוכחיות ולא ניתן יהיה לשחזר אותן.")) {
+                currentImage = new Image();
+                currentDetections = [];
+                canvasArea.style.display = 'none'; 
+                btnNew.style.display = 'none';
+                dropZone.style.display = 'flex'; 
+                btnDownload.disabled = true; 
+                fileInp.value = "";
+            }
+        }
+
+        // אלמנטים
+        const dropZone = document.getElementById('dropZone'), fileInp = document.getElementById('fileInp');
+        const canvasArea = document.getElementById('canvasArea'), mainCanvas = document.getElementById('mainCanvas');
+        const ctx = mainCanvas.getContext('2d');
+        const btnDownload = document.getElementById('btnDownload'), btnNew = document.getElementById('btnNew');
+        const loader = document.getElementById('loading'), loaderText = document.getElementById('loaderText');
+        const blurRange = document.getElementById('blurRange'), padRange = document.getElementById('padRange');
+        const featherRange = document.getElementById('featherRange'), brushRange = document.getElementById('brushRange');
+        const btnClearManual = document.getElementById('btnClearManual'), btnClearAuto = document.getElementById('btnClearAuto');
+        const modeDraw = document.getElementById('modeDraw'), modeErase = document.getElementById('modeErase');
+        const brushCursor = document.getElementById('brushCursor');
+
+        // קנבסים פנימיים למנוע השכבות המקצועי
+        const aiMaskCanvas = document.createElement('canvas'), aiCtx = aiMaskCanvas.getContext('2d');
+        const manualMaskCanvas = document.createElement('canvas'), manualCtx = manualMaskCanvas.getContext('2d');
+        const unionCanvas = document.createElement('canvas'), unionCtx = unionCanvas.getContext('2d');
+        const softMaskCanvas = document.createElement('canvas'), softCtx = softMaskCanvas.getContext('2d');
+        const blurCanvas = document.createElement('canvas'), blurCtx = blurCanvas.getContext('2d');
+
+        let currentImage = new Image();
+        let currentDetections = [];
+        let modelsLoaded = false;
+
+        // טעינת מודלים
+        async function loadModels() {
+            if(modelsLoaded) return;
+            loader.style.display = 'flex';
+            try {
+                const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
+                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                modelsLoaded = true;
+                loader.style.display = 'none';
+            } catch (err) {
+                loaderText.innerText = "שגיאה בטעינת המערכת. רענני את העמוד.";
+            }
+        }
+        
+        window.onload = checkLoginStatus;
+
+        function initLayerEngine(w, h) {
+            [mainCanvas, aiMaskCanvas, manualMaskCanvas, unionCanvas, softMaskCanvas, blurCanvas].forEach(c => {
+                c.width = w; c.height = h;
+            });
+            manualCtx.clearRect(0,0,w,h); 
+        }
+
+        // העלאת תמונה ושדרוג חווית הגרירה
+        dropZone.onclick = () => fileInp.click();
+        dropZone.ondragover = (e) => { 
+            e.preventDefault(); 
+            dropZone.classList.add('dragover'); 
+        };
+        dropZone.ondragleave = () => { 
+            dropZone.classList.remove('dragover'); 
+        };
+        dropZone.ondrop = (e) => { 
+            e.preventDefault(); 
+            dropZone.classList.remove('dragover'); 
+            if(e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]); 
+            }
+        };
+        fileInp.onchange = (e) => handleFile(e.target.files[0]);
+
+        btnNew.onclick = () => {
+            canvasArea.style.display = 'none'; btnNew.style.display = 'none';
+            dropZone.style.display = 'flex'; btnDownload.disabled = true; fileInp.value = "";
+        };
+
+        async function handleFile(file) {
+            if (!file || !file.type.startsWith('image/')) return;
+            if (!modelsLoaded) return alert("המערכת עדיין נטענת, המתיני מספר שניות...");
+
+            dropZone.style.display = 'none';
+            loaderText.innerText = "מנתח מבנה פנים...";
+            loader.style.display = 'flex';
+
+            const url = URL.createObjectURL(file);
+            currentImage.src = url;
+            currentImage.onload = async () => {
+                initLayerEngine(currentImage.width, currentImage.height);
+                
+                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 });
+                currentDetections = await faceapi.detectAllFaces(currentImage, options);
+                
+                updateProcess();
+                
+                canvasArea.style.display = 'flex'; btnNew.style.display = 'block';
+                btnDownload.disabled = false; loader.style.display = 'none';
+            };
+        }
+
+        function updateProcess() {
+            if (!currentImage.src) return;
+            
+            const padPercent = parseInt(padRange.value) / 100;
+            const featherAmount = parseInt(featherRange.value);
+            const blurAmount = parseInt(blurRange.value);
+
+            // 1. יצירת מסכת AI אטומה
+            aiCtx.clearRect(0,0, aiMaskCanvas.width, aiMaskCanvas.height);
+            aiCtx.fillStyle = 'black';
+            currentDetections.forEach(det => {
+                const { x, y, width, height } = det.box;
+                const padX = width * padPercent, padY = height * padPercent;
+                const centerX = x + width / 2, centerY = y + height / 2 - (padY * 0.2);
+                const radiusX = (width / 2) + padX, radiusY = (height / 2) + padY;
+
+                aiCtx.beginPath();
+                aiCtx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+                aiCtx.fill();
+            });
+
+            // 2. איחוד מסכת AI עם המסכה הידנית (Union)
+            unionCtx.clearRect(0,0, unionCanvas.width, unionCanvas.height);
+            unionCtx.drawImage(aiMaskCanvas, 0, 0);
+            unionCtx.drawImage(manualMaskCanvas, 0, 0);
+
+            // 3. יצירת קצוות רכים
+            softCtx.clearRect(0,0, softMaskCanvas.width, softMaskCanvas.height);
+            softCtx.filter = `blur(${featherAmount}px)`;
+            softCtx.drawImage(unionCanvas, 0, 0);
+            softCtx.filter = 'none';
+
+            // 4. שכבה מטושטשת גלובלית
+            blurCtx.clearRect(0,0, blurCanvas.width, blurCanvas.height);
+            blurCtx.filter = `blur(${blurAmount}px)`;
+            blurCtx.drawImage(currentImage, 0, 0);
+            blurCtx.filter = 'none';
+
+            // 5. חיתוך
+            blurCtx.globalCompositeOperation = 'destination-in';
+            blurCtx.drawImage(softMaskCanvas, 0, 0);
+            blurCtx.globalCompositeOperation = 'source-over';
+
+            // 6. הרכבה
+            ctx.clearRect(0,0, mainCanvas.width, mainCanvas.height);
+            ctx.drawImage(currentImage, 0, 0); 
+            ctx.drawImage(blurCanvas, 0, 0);   
+        }
+
+        // --- סמן ויזואלי למברשת ---
+        function updateCursorStyle(e) {
+            if (!currentImage.src) return;
+            brushCursor.style.display = 'block';
+            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            brushCursor.style.left = clientX + 'px';
+            brushCursor.style.top = clientY + 'px';
+
+            const rect = mainCanvas.getBoundingClientRect();
+            const scale = rect.width / mainCanvas.width;
+            const size = parseInt(brushRange.value) * scale;
+            brushCursor.style.width = size + 'px';
+            brushCursor.style.height = size + 'px';
+
+            if (modeDraw.checked) {
+                brushCursor.style.borderColor = 'var(--accent)';
+                brushCursor.style.background = 'rgba(214, 76, 120, 0.1)';
+            } else {
+                brushCursor.style.borderColor = 'var(--secondary)';
+                brushCursor.style.background = 'rgba(37, 82, 154, 0.1)';
+            }
+        }
+
+        mainCanvas.addEventListener('mousemove', updateCursorStyle);
+        mainCanvas.addEventListener('touchmove', updateCursorStyle, {passive: false});
+        mainCanvas.addEventListener('mouseleave', () => brushCursor.style.display = 'none');
+        window.addEventListener('scroll', () => brushCursor.style.display = 'none');
+
+        // --- ציור ומחיקה ---
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+
+        function getMousePos(e) {
+            const rect = mainCanvas.getBoundingClientRect();
+            const scaleX = mainCanvas.width / rect.width;
+            const scaleY = mainCanvas.height / rect.height;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+            return {
+                x: (clientX - rect.left) * scaleX,
+                y: (clientY - rect.top) * scaleY
+            };
+        }
+
+        function startDraw(e) {
+            if (!currentImage.src) return;
+            isDrawing = true;
+            const pos = getMousePos(e);
+            lastX = pos.x; lastY = pos.y;
+            drawManual(pos.x, pos.y, false);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const pos = getMousePos(e);
+            drawManual(pos.x, pos.y, true);
+            lastX = pos.x; lastY = pos.y;
+        }
+
+        function stopDraw() { isDrawing = false; }
+
+        function drawManual(x, y, isDrag) {
+            manualCtx.lineCap = 'round';
+            manualCtx.lineJoin = 'round';
+            manualCtx.lineWidth = parseInt(brushRange.value);
+
+            if (modeDraw.checked) {
+                manualCtx.globalCompositeOperation = 'source-over';
+                manualCtx.strokeStyle = 'black';
+            } else {
+                manualCtx.globalCompositeOperation = 'destination-out';
+                manualCtx.strokeStyle = 'rgba(0,0,0,1)'; 
+            }
+
+            manualCtx.beginPath();
+            if (isDrag) {
+                manualCtx.moveTo(lastX, lastY);
+                manualCtx.lineTo(x, y);
+            } else {
+                manualCtx.moveTo(x, y);
+                manualCtx.lineTo(x, y);
+            }
+            manualCtx.stroke();
+            
+            updateProcess(); 
+        }
+
+        mainCanvas.addEventListener('mousedown', startDraw);
+        mainCanvas.addEventListener('mousemove', draw);
+        window.addEventListener('mouseup', stopDraw);
+        
+        mainCanvas.addEventListener('touchstart', startDraw, {passive: false});
+        mainCanvas.addEventListener('touchmove', draw, {passive: false});
+        window.addEventListener('touchend', stopDraw);
+
+        // --- סנכרון ממשק וכפתורים ---
+        const syncUI = () => {
+            document.getElementById('blurVal').innerText = blurRange.value + 'px';
+            document.getElementById('padVal').innerText = padRange.value + '%';
+            document.getElementById('featherVal').innerText = featherRange.value + 'px';
+            document.getElementById('brushVal').innerText = brushRange.value + 'px';
+            updateProcess();
+        };
+
+        brushRange.addEventListener('input', syncUI);
+        blurRange.oninput = syncUI; padRange.oninput = syncUI;
+        featherRange.oninput = syncUI; 
+
+        modeDraw.addEventListener('change', () => { brushCursor.style.borderColor = 'var(--accent)'; brushCursor.style.background = 'rgba(214, 76, 120, 0.1)'; });
+        modeErase.addEventListener('change', () => { brushCursor.style.borderColor = 'var(--secondary)'; brushCursor.style.background = 'rgba(37, 82, 154, 0.1)'; });
+
+        // מחיקת עריכות ידניות
+        btnClearManual.onclick = () => {
+            if(!currentImage.src) return;
+            manualCtx.clearRect(0,0, manualMaskCanvas.width, manualMaskCanvas.height);
+            updateProcess();
+        };
+
+        // מחיקת טשטוש אוטומטי (AI)
+        btnClearAuto.onclick = () => {
+            if(!currentImage.src) return;
+            currentDetections = []; // מרוקן את מערך הזיהויים
+            updateProcess(); // מרנדר מחדש ללא מסכות ה-AI
+        };
+
+        btnDownload.onclick = () => {
+            const link = document.createElement('a');
+            link.download = 'Swift_Censored_Elite.jpg';
+            link.href = mainCanvas.toDataURL('image/jpeg', 0.95);
+            link.click();
+        };
+    </script>
+</body>
+</html>
