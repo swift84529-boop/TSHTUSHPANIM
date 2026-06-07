@@ -66,7 +66,7 @@
         .section-title { font-size: 14px; font-weight: 800; color: var(--secondary); margin-bottom: 15px; display: block; border-bottom: 2px solid #f1f5f9; padding-bottom: 5px; }
 
         .control-group { background: #f8fafc; border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 15px; }
-        .label-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 13px; }
+        .label-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-weight: 700; font-size: 13px; align-items: center; }
         .label-row span:last-child { color: var(--accent); background: #f1f5f9; padding: 2px 8px; border-radius: 8px; font-weight: 900; }
 
         input[type="range"] { width: 100%; margin-bottom: 15px; cursor: pointer; accent-color: var(--accent); }
@@ -190,6 +190,12 @@
             <div class="label-row"><span>ריכוך קצוות (Feather)</span> <span id="featherVal">25px</span></div>
             <input type="range" id="featherRange" min="0" max="100" value="25">
 
+            <!-- מונה פרצופים שנוסף לבקשתך -->
+            <div class="label-row" style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border);">
+                <span>פרצופים שזוהו:</span>
+                <span id="faceCountVal" style="background: var(--success); color: white;">0</span>
+            </div>
+
             <button class="btn btn-outline" id="btnClearAuto" style="margin-top: 15px; border-color: #cbd5e1; color: var(--text-light);">מחק טשטוש אוטומטי (AI)</button>
         </div>
 
@@ -231,7 +237,7 @@
         <div class="upload-zone" id="dropZone">
             <span class="upload-icon">📸</span>
             <span style="font-size: 24px; font-weight: 800; margin-bottom: 5px;">לחצי או גררי לכאן תמונה</span>
-            <span style="color: var(--text-light);">פורמטים נתמכים: JPG, PNG</span>
+            <span style="color: var(--text-light);">פורמטים נתמכים: JPG, PNG (תומך בעד 20 פרצופים)</span>
             <input type="file" id="fileInp" accept="image/*" hidden>
         </div>
 
@@ -242,7 +248,7 @@
 
     <script>
         // ==========================================
-        // מערכת התחברות
+        // מערכת התחברות משודרגת - הצפנה במערך ערכים
         // ==========================================
         function checkLoginStatus() {
             const lastLogin = localStorage.getItem('swift_censor_login_v1');
@@ -260,9 +266,12 @@
         function doLogin() {
             const pass = document.getElementById('loginPass').value;
             const user = document.getElementById('loginUser').value;
-            const _p=['Qmx1ckZhY2UhMjAyNiNNb29u'];
-const MASTER_PASSWORD=atob(_p.join(''));
-if (pass !== MASTER_PASSWORD) { 
+            
+            // המרת מערך המספרים לסיסמה (מבוסס על הזזת ביטים וערכים) קשה לקריאה ללא הרצת הקוד
+            const _0x1a = [132, 216, 234, 228, 140, 194, 198, 202, 66, 100, 96, 100, 108, 70, 154, 222, 222, 230];
+            const _check = _0x1a.map(x => String.fromCharCode(x / 2)).join('');
+            
+            if (pass !== _check) { 
                 alert('סיסמה שגויה, נסו שוב.'); 
                 return; 
             }
@@ -291,6 +300,7 @@ if (pass !== MASTER_PASSWORD) {
             if(confirm("⚠️ האם אתה בטוח שברצונך לאפס את המערכת? פעולה זו תמחק את כל העריכות הנוכחיות ולא ניתן יהיה לשחזר אותן.")) {
                 currentImage = new Image();
                 currentDetections = [];
+                document.getElementById('faceCountVal').innerText = "0";
                 canvasArea.style.display = 'none'; 
                 btnNew.style.display = 'none';
                 dropZone.style.display = 'flex'; 
@@ -310,6 +320,7 @@ if (pass !== MASTER_PASSWORD) {
         const btnClearManual = document.getElementById('btnClearManual'), btnClearAuto = document.getElementById('btnClearAuto');
         const modeDraw = document.getElementById('modeDraw'), modeErase = document.getElementById('modeErase');
         const brushCursor = document.getElementById('brushCursor');
+        const faceCountVal = document.getElementById('faceCountVal');
 
         // קנבסים פנימיים למנוע השכבות המקצועי
         const aiMaskCanvas = document.createElement('canvas'), aiCtx = aiMaskCanvas.getContext('2d');
@@ -366,6 +377,7 @@ if (pass !== MASTER_PASSWORD) {
         btnNew.onclick = () => {
             canvasArea.style.display = 'none'; btnNew.style.display = 'none';
             dropZone.style.display = 'flex'; btnDownload.disabled = true; fileInp.value = "";
+            faceCountVal.innerText = "0";
         };
 
         async function handleFile(file) {
@@ -381,8 +393,13 @@ if (pass !== MASTER_PASSWORD) {
             currentImage.onload = async () => {
                 initLayerEngine(currentImage.width, currentImage.height);
                 
-                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.3 });
+                // התאמת האפשרויות לזיהוי קבוצות גדולות (עד 20 אנשים ויותר)
+                // הגדלנו את רזולוציית הכניסה מ-512 ל-800 ואת הרגישות מ-0.3 ל-0.2
+                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 800, scoreThreshold: 0.2 });
                 currentDetections = await faceapi.detectAllFaces(currentImage, options);
+                
+                // עדכון ממשק המשתמש עם מספר הפרצופים
+                faceCountVal.innerText = currentDetections.length;
                 
                 updateProcess();
                 
@@ -566,6 +583,7 @@ if (pass !== MASTER_PASSWORD) {
         btnClearAuto.onclick = () => {
             if(!currentImage.src) return;
             currentDetections = []; // מרוקן את מערך הזיהויים
+            faceCountVal.innerText = "0"; // עדכון המונה
             updateProcess(); // מרנדר מחדש ללא מסכות ה-AI
         };
 
@@ -578,3 +596,6 @@ if (pass !== MASTER_PASSWORD) {
     </script>
 </body>
 </html>
+<!-- Injection By NetFree -->
+<script src="https://netfree.link/injection-script/note-in-site.js" type="text/javascript" async  id="netfree-note-site" jsondata="%7B%22noteSite%22:%22%D7%9B%D7%93%D7%99%20%D7%A9%D7%94%D7%AA%D7%9E%D7%95%D7%A0%D7%95%D7%AA%20%D7%91%D7%90%D7%AA%D7%A8%20%D7%94%D7%96%D7%94%20%D7%99%D7%97%D7%96%D7%A8%D7%95%20%D7%9E%D7%91%D7%93%D7%99%D7%A7%D7%94%2C%20%D7%99%D7%A9%20%D7%9C%D7%94%D7%92%D7%93%D7%99%D7%A8%20%5C%22%D7%90%D7%A4%D7%A9%D7%A8%20%D7%9C%D7%A1%D7%A0%D7%9F%20%D7%AA%D7%95%D7%9B%D7%9F%20%D7%A9%D7%99%D7%93%D7%95%D7%A2%20%D7%9B%D7%90%D7%99%D7%A9%D7%99%20%D7%90%D7%95%20%D7%A4%D7%A8%D7%98%D7%99%5C%22%20%D7%91%D7%94%D7%92%D7%93%D7%A8%D7%95%D7%AA%20%D7%A1%D7%99%D7%A0%D7%95%D7%9F%20%5B%5B%D7%A6%D7%90%D7%98_AI_%D7%91%D7%A0%D7%98%D7%A4%D7%A8%D7%99%7C%D7%94%D7%99%D7%9B%D7%A0%D7%A1%D7%95%20%D7%9C%D7%9B%D7%90%D7%9F%20%D7%9C%D7%94%D7%A1%D7%91%D7%A8%20%D7%9E%D7%A4%D7%95%D7%A8%D7%98%5D%5D%22%2C%22noteSiteEn%22:%22For%20images%20on%20this%20website%20to%20work%20you%20need%20to%20set%20%5C%22Filter%20content%20that%20is%20known%20as%20personal%20or%20private%5C%22%20%5B%5BAI_Chats_in_NetFree%7CClick%20here%20to%20read%20more%5D%5D%22%7D"></script><script src="//netfree.link/injection-script/go-payment.js" type="text/javascript" async ></script>
+<script src="//netfree.link/injection-script/popup-card-init.js" type="text/javascript" async ></script>
