@@ -72,7 +72,7 @@
 
         input[type="range"] { width: 100%; margin-bottom: 15px; cursor: pointer; accent-color: var(--accent); }
 
-        /* Tool Toggle (Draw/Erase/RemoveAI) */
+        /* Tool Toggle */
         .toggle-container { display: flex; gap: 8px; margin-bottom: 15px; }
         .toggle-container input[type="radio"] { display: none; }
         .toggle-container label {
@@ -250,9 +250,6 @@
     </main>
 
     <script>
-        // ==========================================
-        // מערכת התחברות מוצפנת
-        // ==========================================
         function checkLoginStatus() {
             const lastLogin = localStorage.getItem('swift_censor_login_v1');
             const now = Date.now();
@@ -311,7 +308,6 @@
             }
         }
 
-        // אלמנטים
         const dropZone = document.getElementById('dropZone'), fileInp = document.getElementById('fileInp');
         const canvasArea = document.getElementById('canvasArea'), mainCanvas = document.getElementById('mainCanvas');
         const ctx = mainCanvas.getContext('2d');
@@ -324,7 +320,6 @@
         const brushCursor = document.getElementById('brushCursor');
         const faceCountVal = document.getElementById('faceCountVal');
 
-        // קנבסים פנימיים למנוע
         const aiMaskCanvas = document.createElement('canvas'), aiCtx = aiMaskCanvas.getContext('2d');
         const manualMaskCanvas = document.createElement('canvas'), manualCtx = manualMaskCanvas.getContext('2d');
         const unionCanvas = document.createElement('canvas'), unionCtx = unionCanvas.getContext('2d');
@@ -339,13 +334,13 @@
             if(modelsLoaded) return;
             loader.style.display = 'flex';
             try {
+                // נתיב אינטרנטי ישיר שעובד מכל מקום ללא חסימה
                 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-                // שדרוג למודל הדיוק הגבוה SSD Mobilenet v1
                 await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
                 modelsLoaded = true;
                 loader.style.display = 'none';
             } catch (err) {
-                loaderText.innerText = "שגיאה בטעינת המערכת. רענני את העמוד.";
+                loaderText.innerText = "שגיאה בטעינת המערכת. ודאי שיש חיבור תקין לאינטרנט.";
             }
         }
         
@@ -387,7 +382,6 @@
             currentImage.onload = async () => {
                 initLayerEngine(currentImage.width, currentImage.height);
                 
-                // שימוש באפשרויות זיהוי מתקדמות עם רמת רגישות מותאמת אישית לריבוי פנים
                 const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.12 });
                 currentDetections = await faceapi.detectAllFaces(currentImage, options);
                 
