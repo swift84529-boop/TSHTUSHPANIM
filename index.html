@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Swift Studio - Face Censor Elite V2.2</title>
+    <title>Swift Studio - Face Censor Elite V2.3</title>
     <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
     <style>
         :root {
             --accent: #d64c78;
             --secondary: #25529a;
             --success: #10b981;
+            --danger: #ef4444;
             --bg: #f8fafc;
             --sidebar-bg: #ffffff;
             --text-dark: #1e293b;
@@ -71,18 +72,21 @@
 
         input[type="range"] { width: 100%; margin-bottom: 15px; cursor: pointer; accent-color: var(--accent); }
 
-        /* Tool Toggle (Draw/Erase) */
-        .toggle-container { display: flex; gap: 10px; margin-bottom: 15px; }
+        /* Tool Toggle (Draw/Erase/RemoveAI) */
+        .toggle-container { display: flex; gap: 8px; margin-bottom: 15px; }
         .toggle-container input[type="radio"] { display: none; }
         .toggle-container label {
-            flex: 1; text-align: center; padding: 10px; background: white; border: 2px solid var(--border);
-            border-radius: 12px; cursor: pointer; font-weight: 800; font-size: 13px; color: var(--text-light); transition: 0.2s;
+            flex: 1; text-align: center; padding: 8px 4px; background: white; border: 2px solid var(--border);
+            border-radius: 10px; cursor: pointer; font-weight: 800; font-size: 12px; color: var(--text-light); transition: 0.2s;
         }
         .toggle-container input[type="radio"]#modeDraw:checked + label {
             border-color: var(--accent); color: var(--accent); background: #fffafb;
         }
         .toggle-container input[type="radio"]#modeErase:checked + label {
             border-color: var(--secondary); color: var(--secondary); background: #f4f8ff;
+        }
+        .toggle-container input[type="radio"]#modeRemoveAI:checked + label {
+            border-color: var(--danger); color: var(--danger); background: #fef2f2;
         }
 
         /* Buttons */
@@ -175,7 +179,7 @@
     <aside class="sidebar">
         <div class="brand">
             <h1>SWIFT STUDIO</h1>
-            <p>AI CENSOR ELITE V2.2</p>
+            <p>AI CENSOR ELITE V2.3</p>
         </div>
 
         <div class="control-group">
@@ -190,20 +194,16 @@
             <div class="label-row"><span>ריכוך קצוות (Feather)</span> <span id="featherVal">25px</span></div>
             <input type="range" id="featherRange" min="0" max="100" value="25">
 
-            <!-- מונה פרצופים שנוסף לבקשתך -->
             <div class="label-row" style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed var(--border);">
                 <span>פרצופים שזוהו:</span>
                 <span id="faceCountVal" style="background: var(--success); color: white;">0</span>
             </div>
 
-            <button class="btn btn-outline" id="btnClearAuto" style="margin-top: 15px; border-color: #cbd5e1; color: var(--text-light);">מחק טשטוש אוטומטי (AI)</button>
+            <button class="btn btn-outline" id="btnClearAuto" style="margin-top: 15px; border-color: #cbd5e1; color: var(--text-light);">מחק הכל (אוטומטי)</button>
         </div>
 
         <div class="control-group">
-            <span class="section-title">🖌️ טשטוש ומחיקה ידנית</span>
-            <div style="font-size: 12px; color: var(--text-light); margin-bottom: 15px; font-weight: bold;">
-                בחרי כלי וציירי על התמונה. הסמן מראה בדיוק את גודל הפעולה.
-            </div>
+            <span class="section-title">🖌️ כלי עריכה מתקדמים</span>
             
             <div class="toggle-container">
                 <input type="radio" id="modeDraw" name="brushMode" value="draw" checked>
@@ -211,12 +211,15 @@
                 
                 <input type="radio" id="modeErase" name="brushMode" value="erase">
                 <label for="modeErase">🧽 מחק טשטוש</label>
+
+                <input type="radio" id="modeRemoveAI" name="brushMode" value="removeAI">
+                <label for="modeRemoveAI">🎯 הסר פנים AI</label>
             </div>
 
             <div class="label-row"><span>גודל מברשת</span> <span id="brushVal">60px</span></div>
             <input type="range" id="brushRange" min="10" max="300" value="60">
 
-            <button class="btn btn-outline" id="btnClearManual" style="margin-top: 5px; border-color: #cbd5e1; color: var(--text-light);">מחק הכל (עריכות ידניות)</button>
+            <button class="btn btn-outline" id="btnClearManual" style="margin-top: 5px; border-color: #cbd5e1; color: var(--text-light);">מחק הכל (ידני)</button>
         </div>
 
         <button class="btn btn-primary" id="btnDownload" disabled>💾 הורדת התמונה המצונזרת</button>
@@ -237,7 +240,7 @@
         <div class="upload-zone" id="dropZone">
             <span class="upload-icon">📸</span>
             <span style="font-size: 24px; font-weight: 800; margin-bottom: 5px;">לחצי או גררי לכאן תמונה</span>
-            <span style="color: var(--text-light);">פורמטים נתמכים: JPG, PNG (תומך בעד 20 פרצופים)</span>
+            <span style="color: var(--text-light);">פורמטים נתמכים: JPG, PNG (תומך בעד 100+ פרצופים)</span>
             <input type="file" id="fileInp" accept="image/*" hidden>
         </div>
 
@@ -248,7 +251,7 @@
 
     <script>
         // ==========================================
-        // מערכת התחברות משודרגת - הצפנה במערך ערכים
+        // מערכת התחברות מוצפנת
         // ==========================================
         function checkLoginStatus() {
             const lastLogin = localStorage.getItem('swift_censor_login_v1');
@@ -259,7 +262,7 @@
                 document.getElementById('loginOverlay').style.display = 'flex';
             } else {
                 document.getElementById('loginOverlay').style.display = 'none';
-                loadModels(); // טוען מודלים רק אם מחובר
+                loadModels();
             }
         }
 
@@ -267,7 +270,6 @@
             const pass = document.getElementById('loginPass').value;
             const user = document.getElementById('loginUser').value;
             
-            // המרת מערך המספרים לסיסמה (מבוסס על הזזת ביטים וערכים) קשה לקריאה ללא הרצת הקוד
             const _0x1a = [132, 216, 234, 228, 140, 194, 198, 202, 66, 100, 96, 100, 108, 70, 154, 222, 222, 230];
             const _check = _0x1a.map(x => String.fromCharCode(x / 2)).join('');
             
@@ -281,7 +283,7 @@
             document.getElementById('loginOverlay').style.opacity = '0';
             setTimeout(() => {
                 document.getElementById('loginOverlay').style.display = 'none';
-                loadModels(); // טוען מודלים לאחר התחברות
+                loadModels();
             }, 400);
         }
 
@@ -318,11 +320,11 @@
         const blurRange = document.getElementById('blurRange'), padRange = document.getElementById('padRange');
         const featherRange = document.getElementById('featherRange'), brushRange = document.getElementById('brushRange');
         const btnClearManual = document.getElementById('btnClearManual'), btnClearAuto = document.getElementById('btnClearAuto');
-        const modeDraw = document.getElementById('modeDraw'), modeErase = document.getElementById('modeErase');
+        const modeDraw = document.getElementById('modeDraw'), modeErase = document.getElementById('modeErase'), modeRemoveAI = document.getElementById('modeRemoveAI');
         const brushCursor = document.getElementById('brushCursor');
         const faceCountVal = document.getElementById('faceCountVal');
 
-        // קנבסים פנימיים למנוע השכבות המקצועי
+        // קנבסים פנימיים למנוע
         const aiMaskCanvas = document.createElement('canvas'), aiCtx = aiMaskCanvas.getContext('2d');
         const manualMaskCanvas = document.createElement('canvas'), manualCtx = manualMaskCanvas.getContext('2d');
         const unionCanvas = document.createElement('canvas'), unionCtx = unionCanvas.getContext('2d');
@@ -333,13 +335,13 @@
         let currentDetections = [];
         let modelsLoaded = false;
 
-        // טעינת מודלים
         async function loadModels() {
             if(modelsLoaded) return;
             loader.style.display = 'flex';
             try {
                 const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/';
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+                // שדרוג למודל הדיוק הגבוה SSD Mobilenet v1
+                await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
                 modelsLoaded = true;
                 loader.style.display = 'none';
             } catch (err) {
@@ -356,21 +358,13 @@
             manualCtx.clearRect(0,0,w,h); 
         }
 
-        // העלאת תמונה ושדרוג חווית הגרירה
         dropZone.onclick = () => fileInp.click();
-        dropZone.ondragover = (e) => { 
-            e.preventDefault(); 
-            dropZone.classList.add('dragover'); 
-        };
-        dropZone.ondragleave = () => { 
-            dropZone.classList.remove('dragover'); 
-        };
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+        dropZone.ondragleave = () => { dropZone.classList.remove('dragover'); };
         dropZone.ondrop = (e) => { 
             e.preventDefault(); 
             dropZone.classList.remove('dragover'); 
-            if(e.dataTransfer.files.length > 0) {
-                handleFile(e.dataTransfer.files[0]); 
-            }
+            if(e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]); 
         };
         fileInp.onchange = (e) => handleFile(e.target.files[0]);
 
@@ -385,7 +379,7 @@
             if (!modelsLoaded) return alert("המערכת עדיין נטענת, המתיני מספר שניות...");
 
             dropZone.style.display = 'none';
-            loaderText.innerText = "מנתח מבנה פנים...";
+            loaderText.innerText = "מנתח מבנה פנים (סריקה עמוקה)...";
             loader.style.display = 'flex';
 
             const url = URL.createObjectURL(file);
@@ -393,14 +387,11 @@
             currentImage.onload = async () => {
                 initLayerEngine(currentImage.width, currentImage.height);
                 
-                // התאמת האפשרויות לזיהוי קבוצות גדולות (עד 20 אנשים ויותר)
-                // הגדלנו את רזולוציית הכניסה מ-512 ל-800 ואת הרגישות מ-0.3 ל-0.2
-                const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 800, scoreThreshold: 0.2 });
+                // שימוש באפשרויות זיהוי מתקדמות עם רמת רגישות מותאמת אישית לריבוי פנים
+                const options = new faceapi.SsdMobilenetv1Options({ minConfidence: 0.12 });
                 currentDetections = await faceapi.detectAllFaces(currentImage, options);
                 
-                // עדכון ממשק המשתמש עם מספר הפרצופים
                 faceCountVal.innerText = currentDetections.length;
-                
                 updateProcess();
                 
                 canvasArea.style.display = 'flex'; btnNew.style.display = 'block';
@@ -415,7 +406,6 @@
             const featherAmount = parseInt(featherRange.value);
             const blurAmount = parseInt(blurRange.value);
 
-            // 1. יצירת מסכת AI אטומה
             aiCtx.clearRect(0,0, aiMaskCanvas.width, aiMaskCanvas.height);
             aiCtx.fillStyle = 'black';
             currentDetections.forEach(det => {
@@ -429,35 +419,29 @@
                 aiCtx.fill();
             });
 
-            // 2. איחוד מסכת AI עם המסכה הידנית (Union)
             unionCtx.clearRect(0,0, unionCanvas.width, unionCanvas.height);
             unionCtx.drawImage(aiMaskCanvas, 0, 0);
             unionCtx.drawImage(manualMaskCanvas, 0, 0);
 
-            // 3. יצירת קצוות רכים
             softCtx.clearRect(0,0, softMaskCanvas.width, softMaskCanvas.height);
             softCtx.filter = `blur(${featherAmount}px)`;
             softCtx.drawImage(unionCanvas, 0, 0);
             softCtx.filter = 'none';
 
-            // 4. שכבה מטושטשת גלובלית
             blurCtx.clearRect(0,0, blurCanvas.width, blurCanvas.height);
             blurCtx.filter = `blur(${blurAmount}px)`;
             blurCtx.drawImage(currentImage, 0, 0);
             blurCtx.filter = 'none';
 
-            // 5. חיתוך
             blurCtx.globalCompositeOperation = 'destination-in';
             blurCtx.drawImage(softMaskCanvas, 0, 0);
             blurCtx.globalCompositeOperation = 'source-over';
 
-            // 6. הרכבה
             ctx.clearRect(0,0, mainCanvas.width, mainCanvas.height);
             ctx.drawImage(currentImage, 0, 0); 
             ctx.drawImage(blurCanvas, 0, 0);   
         }
 
-        // --- סמן ויזואלי למברשת ---
         function updateCursorStyle(e) {
             if (!currentImage.src) return;
             brushCursor.style.display = 'block';
@@ -469,16 +453,24 @@
 
             const rect = mainCanvas.getBoundingClientRect();
             const scale = rect.width / mainCanvas.width;
-            const size = parseInt(brushRange.value) * scale;
-            brushCursor.style.width = size + 'px';
-            brushCursor.style.height = size + 'px';
-
-            if (modeDraw.checked) {
-                brushCursor.style.borderColor = 'var(--accent)';
-                brushCursor.style.background = 'rgba(214, 76, 120, 0.1)';
+            
+            if (modeRemoveAI.checked) {
+                brushCursor.style.borderColor = 'var(--danger)';
+                brushCursor.style.background = 'rgba(239, 68, 68, 0.15)';
+                brushCursor.style.width = '40px';
+                brushCursor.style.height = '40px';
             } else {
-                brushCursor.style.borderColor = 'var(--secondary)';
-                brushCursor.style.background = 'rgba(37, 82, 154, 0.1)';
+                const size = parseInt(brushRange.value) * scale;
+                brushCursor.style.width = size + 'px';
+                brushCursor.style.height = size + 'px';
+
+                if (modeDraw.checked) {
+                    brushCursor.style.borderColor = 'var(--accent)';
+                    brushCursor.style.background = 'rgba(214, 76, 120, 0.1)';
+                } else {
+                    brushCursor.style.borderColor = 'var(--secondary)';
+                    brushCursor.style.background = 'rgba(37, 82, 154, 0.1)';
+                }
             }
         }
 
@@ -487,7 +479,6 @@
         mainCanvas.addEventListener('mouseleave', () => brushCursor.style.display = 'none');
         window.addEventListener('scroll', () => brushCursor.style.display = 'none');
 
-        // --- ציור ומחיקה ---
         let isDrawing = false;
         let lastX = 0, lastY = 0;
 
@@ -498,22 +489,34 @@
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-            return {
-                x: (clientX - rect.left) * scaleX,
-                y: (clientY - rect.top) * scaleY
-            };
+            return { x: (clientX - rect.left) * scaleX, y: (clientY - rect.top) * scaleY };
         }
 
         function startDraw(e) {
             if (!currentImage.src) return;
-            isDrawing = true;
             const pos = getMousePos(e);
+
+            if (modeRemoveAI.checked) {
+                const clickedIdx = currentDetections.findIndex(det => {
+                    const { x, y, width, height } = det.box;
+                    return pos.x >= x && pos.x <= x + width && pos.y >= y && pos.y <= y + height;
+                });
+
+                if (clickedIdx > -1) {
+                    currentDetections.splice(clickedIdx, 1);
+                    faceCountVal.innerText = currentDetections.length;
+                    updateProcess();
+                }
+                return;
+            }
+
+            isDrawing = true;
             lastX = pos.x; lastY = pos.y;
             drawManual(pos.x, pos.y, false);
         }
 
         function draw(e) {
-            if (!isDrawing) return;
+            if (!isDrawing || modeRemoveAI.checked) return;
             e.preventDefault();
             const pos = getMousePos(e);
             drawManual(pos.x, pos.y, true);
@@ -556,7 +559,6 @@
         mainCanvas.addEventListener('touchmove', draw, {passive: false});
         window.addEventListener('touchend', stopDraw);
 
-        // --- סנכרון ממשק וכפתורים ---
         const syncUI = () => {
             document.getElementById('blurVal').innerText = blurRange.value + 'px';
             document.getElementById('padVal').innerText = padRange.value + '%';
@@ -571,20 +573,19 @@
 
         modeDraw.addEventListener('change', () => { brushCursor.style.borderColor = 'var(--accent)'; brushCursor.style.background = 'rgba(214, 76, 120, 0.1)'; });
         modeErase.addEventListener('change', () => { brushCursor.style.borderColor = 'var(--secondary)'; brushCursor.style.background = 'rgba(37, 82, 154, 0.1)'; });
+        modeRemoveAI.addEventListener('change', () => { brushCursor.style.borderColor = 'var(--danger)'; brushCursor.style.background = 'rgba(239, 68, 68, 0.15)'; brushCursor.style.width = '40px'; brushCursor.style.height = '40px'; });
 
-        // מחיקת עריכות ידניות
         btnClearManual.onclick = () => {
             if(!currentImage.src) return;
             manualCtx.clearRect(0,0, manualMaskCanvas.width, manualMaskCanvas.height);
             updateProcess();
         };
 
-        // מחיקת טשטוש אוטומטי (AI)
         btnClearAuto.onclick = () => {
             if(!currentImage.src) return;
-            currentDetections = []; // מרוקן את מערך הזיהויים
-            faceCountVal.innerText = "0"; // עדכון המונה
-            updateProcess(); // מרנדר מחדש ללא מסכות ה-AI
+            currentDetections = []; 
+            faceCountVal.innerText = "0"; 
+            updateProcess(); 
         };
 
         btnDownload.onclick = () => {
